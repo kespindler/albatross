@@ -20,10 +20,9 @@ class TimingMiddleware:
 class Handler:
     async def on_get(self, req, res):
         await asyncio.sleep(0.1)
-        res.write('Hello, %s' % req.args['name'])
 
 
 app = Server()
 app.add_route('/(?P<name>[a-z]+)', Handler())
-# app.add_middleware(TimingMiddleware())
+app.add_middleware(TimingMiddleware())
 app.serve()

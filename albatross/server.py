@@ -127,12 +127,10 @@ class Server:
     def _write_response(self, res, writer):
         writer.write(b'HTTP/1.0 %s\r\n' % res.status_code.encode())
         for key, value in res.headers.items():
-            writer.write(key.encode() + b': ' + value.encode())
+            writer.write(key.encode() + b': ' + value.encode() + b'\r\n')
         writer.write(b'\r\n')
         for chunk in res._chunks:
-            print('writing' + chunk)
-            writer.write(b'hello')
-            # writer.write(chunk.encode())
+            writer.write(chunk.encode())
         writer.write_eof()
 
     def serve(self):

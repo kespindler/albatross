@@ -4,6 +4,19 @@ I wanted to see how simple it is to make an modern async web framework. (python3
 
 It turns out - it's dead simple.
 
+	from albatross import Server
+	import asyncio
+
+	class Handler:
+		async def on_get(self, req, res):
+			await asyncio.sleep(0.1)
+			res.write('Hello, %s' % req.args['name'])
+
+
+	app = Server()
+	app.add_route('/(?P<name>[a-z]+)', Handler())
+	app.serve()
+
 ## Usage
 
 Create an app. Create handlers that have async functions `on_get`, `on_post`, etc. Call add_route with regex-based routes
@@ -36,7 +49,6 @@ Each of those is less than 100 lines or so.
 ## Current Gotchas
 
 - Be careful with casing on HTTP headers. The framework should force standardization, but currently they are case-sensitive.
-
 
 ## Todo
 

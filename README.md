@@ -4,18 +4,20 @@ I wanted to see how simple it is to make an modern async web framework. (python3
 
 It turns out - it's dead simple.
 
-	from albatross import Server
-	import asyncio
+```python
+from albatross import Server
+import asyncio
 
-	class Handler:
-		async def on_get(self, req, res):
-			await asyncio.sleep(0.1)
-			res.write('Hello, %s' % req.args['name'])
+class Handler:
+    async def on_get(self, req, res):
+        await asyncio.sleep(0.1)
+        res.write('Hello, %s' % req.args['name'])
 
 
-	app = Server()
-	app.add_route('/(?P<name>[a-z]+)', Handler())
-	app.serve()
+app = Server()
+app.add_route('/(?P<name>[a-z]+)', Handler())
+app.serve()
+```
 
 ## Install
 

@@ -4,7 +4,25 @@ I wanted to see how simple it is to make an modern async web framework. (python3
 
 It turns out - it's dead simple.
 
+## Usage
+
+Create an app. Create handlers that have async functions `on_get`, `on_post`, etc. Call add_route with regex-based routes
+to add the handlers. Call `app.serve()`.
+
+See `examples/` for examples.
+
 ## Features
+
+- You can read the entire codebase in about 10 minutes.
+  There are probably many non-HTTP-compliant and subtle bugs as a consequence, but
+  it works for building simple or moderately complex servers right now!
+
+- It's natively async
+
+- This works with the awesome `uvloop` project. It doesn't yet work with pypy3, because they don't support python3.5.
+  Let's make it happen!
+
+## Framework
 
 The entire framework is 4 files at the moment:
 
@@ -13,9 +31,13 @@ The entire framework is 4 files at the moment:
 - request.py - a web request object
 - response.py - a web response object
 
-Each of those is no less than 100 or so lines.
+Each of those is less than 100 lines or so.
+
+## Current Gotchas
+
+- Be careful with casing on HTTP headers. The framework should force standardization, but currently they are case-sensitive.
+
 
 ## Todo
 
-- tests
-    python3 example_app.py
+- tests: tests are a good idea. I should write some.

@@ -6,6 +6,12 @@ from albatross.status_codes import HTTP_404
 
 
 class Server:
+    """The core albatross server
+
+    Attributes:
+        _handlers (list): a list of route-handler tuples
+        _middleware (list): a list of middlewares to process requests
+    """
     def __init__(self):
         self._handlers = []
         self._middleware = []
@@ -33,6 +39,12 @@ class Server:
         return headers
 
     async def _handle(self, request_reader, response_writer):
+        """Takes reader and writer from asyncio loop server and writes the response to the request.
+
+        :param request_reader:
+        :param response_writer:
+        :return:
+        """
         request_line = await request_reader.readline()
         request_line = request_line.decode()
         method, url_string, _ = request_line.split(' ', 2)
@@ -75,7 +87,7 @@ class Server:
         elif method == 'DELETE':
             await handler.on_delete(req, res)
         else:
-            raise ValueError('Unrecognized method.')
+            raise ValueError('Unrecognized method %s' % method)
 
         for middleware in self._middleware:
             await middleware.process_response(req, res, handler)

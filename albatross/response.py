@@ -5,9 +5,9 @@ class Response:
     """
     Attributes:
         status_code (str): HTTP status code
+        _writer (str): Where to write the response
         content_type (str):
-        headers (dict):
-
+        headers (dict): Be careful about case-sensitivity here.
 
     """
     def __init__(self, writer):
@@ -26,6 +26,8 @@ class Response:
         self._writer.write(b'\r\n')
 
     def write(self, string):
+        """Once you start writing, the headers are fixed.
+        """
         if not self._response_started:
             self.start_response()
             self._response_started = True

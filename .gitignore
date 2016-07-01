@@ -1,2 +1,4 @@
 .idea
 __pycache__
+dist
+albatross3.egg-info/

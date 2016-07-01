@@ -2,7 +2,7 @@ import re
 import asyncio
 import urllib.parse as parse
 from albatross import Request, Response
-from albatross.status_codes import HTTP_404
+from albatross.status_codes import HTTP_404, HTTP_500
 
 
 class Server:
@@ -15,6 +15,7 @@ class Server:
     def __init__(self):
         self._handlers = []
         self._middleware = []
+        self.max_read_chunk = 1024*1024
 
     def get_handler(self, path):
         for route, handler in self._handlers:
@@ -31,20 +32,14 @@ class Server:
     def add_middleware(self, middleware):
         self._middleware.append(middleware)
 
-    def parse_header_lines(self, lines):
+    def _parse_header_lines(self, lines):
         headers = {}
         for l in lines:
             key, value = l.split(': ', 1)
             headers[key] = value
         return headers
 
-    async def _handle(self, request_reader, response_writer):
-        """Takes reader and writer from asyncio loop server and writes the response to the request.
-
-        :param request_reader:
-        :param response_writer:
-        :return:
-        """
+    async def _parse_request(self, request_reader):
         request_line = await request_reader.readline()
         request_line = request_line.decode()
         method, url_string, _ = request_line.split(' ', 2)
@@ -58,39 +53,59 @@ class Server:
                 break
             header_lines.append(l.decode())
 
-        headers = self.parse_header_lines(header_lines)
+        headers = self._parse_header_lines(header_lines)
 
         body = None
         if method in {'POST', 'PUT'}:
+            body_parts = []
             content_length = int(headers.get('Content-Length', 0))
-            body = await request_reader.read(content_length)
-            body = body.decode()
+            while content_length > 0:
+                read_chunk = max(content_length, self.max_read_chunk)
+                body = await request_reader.read(read_chunk)
+                body_parts.append(body.decode())
+                content_length -= read_chunk
+            body = ''.join(body_parts)
 
         path = url.path
+        query = url.query
+        return method, path, query, body
 
-        handler, args = self.get_handler(path)
+    async def _handle(self, request_reader, response_writer):
+        """Takes reader and writer from asyncio loop server and writes the response to the request.
 
-        req = Request(method, path, url.query, body, args)
+        :param request_reader:
+        :param response_writer:
+        :return:
+        """
+        method, path, query, body = await self._parse_request(request_reader)
+
         res = Response(response_writer)
 
-        for middleware in self._middleware:
-            await middleware.process_request(req, res, handler)
+        try:
+            handler, args = self.get_handler(path)
 
-        if handler is None:
-            res.status_code = HTTP_404
-        elif method == 'GET':
-            await handler.on_get(req, res)
-        elif method == 'POST':
-            await handler.on_post(req, res)
-        elif method == 'PUT':
-            await handler.on_put(req, res)
-        elif method == 'DELETE':
-            await handler.on_delete(req, res)
-        else:
-            raise ValueError('Unrecognized method %s' % method)
+            req = Request(method, path, query, body, args)
 
-        for middleware in self._middleware:
-            await middleware.process_response(req, res, handler)
+            for middleware in self._middleware:
+                await middleware.process_request(req, res, handler)
+
+            if handler is None:
+                res.status_code = HTTP_404
+            elif method == 'GET':
+                await handler.on_get(req, res)
+            elif method == 'POST':
+                await handler.on_post(req, res)
+            elif method == 'PUT':
+                await handler.on_put(req, res)
+            elif method == 'DELETE':
+                await handler.on_delete(req, res)
+            else:
+                raise ValueError('Unrecognized method %s' % method)
+
+            for middleware in self._middleware:
+                await middleware.process_response(req, res, handler)
+        except Exception as e:
+            res.status_code = HTTP_500
 
         if not res._response_started:
             res.start_response()

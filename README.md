@@ -17,6 +17,10 @@ It turns out - it's dead simple.
 	app.add_route('/(?P<name>[a-z]+)', Handler())
 	app.serve()
 
+## Install
+
+    pip3 install albatross3
+
 ## Usage
 
 Create an app. Create handlers that have async functions `on_get`, `on_post`, etc. Call add_route with regex-based routes

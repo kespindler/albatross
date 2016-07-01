@@ -2,7 +2,8 @@ import re
 import asyncio
 import urllib.parse as parse
 from albatross import Request, Response
-from albatross.status_codes import HTTP_404, HTTP_500
+from albatross.status_codes import HTTP_404, HTTP_500, HTTP_405
+from albatross.http_error import HTTPError
 
 
 class Server:
@@ -70,6 +71,21 @@ class Server:
         query = url.query
         return method, path, query, body
 
+    async def _route_request(self, handler, req, res):
+        method = req.method
+        if handler is None:
+            raise HTTPError(HTTP_404)
+        elif method == 'GET' and hasattr(handler, 'on_get'):
+            await handler.on_get(req, res)
+        elif method == 'POST' and hasattr(handler, 'on_post'):
+            await handler.on_post(req, res)
+        elif method == 'PUT' and hasattr(handler, 'on_put'):
+            await handler.on_put(req, res)
+        elif method == 'DELETE' and hasattr(handler, 'on_delete'):
+            await handler.on_delete(req, res)
+        else:
+            raise HTTPError(HTTP_405)
+
     async def _handle(self, request_reader, response_writer):
         """Takes reader and writer from asyncio loop server and writes the response to the request.
 
@@ -79,7 +95,7 @@ class Server:
         """
         method, path, query, body = await self._parse_request(request_reader)
 
-        res = Response(response_writer)
+        res = Response()
 
         try:
             handler, args = self.get_handler(path)
@@ -89,29 +105,35 @@ class Server:
             for middleware in self._middleware:
                 await middleware.process_request(req, res, handler)
 
-            if handler is None:
-                res.status_code = HTTP_404
-            elif method == 'GET':
-                await handler.on_get(req, res)
-            elif method == 'POST':
-                await handler.on_post(req, res)
-            elif method == 'PUT':
-                await handler.on_put(req, res)
-            elif method == 'DELETE':
-                await handler.on_delete(req, res)
-            else:
-                raise ValueError('Unrecognized method %s' % method)
+            await self._route_request(handler, req, res)
 
             for middleware in self._middleware:
                 await middleware.process_response(req, res, handler)
         except Exception as e:
-            res.status_code = HTTP_500
+            res.clear()
+            if isinstance(e, HTTPError):
+                res.status_code = e.status_code
+            else:
+                res.status_code = HTTP_500
+            self.handle_error(res, e)
 
-        if not res._response_started:
-            res.start_response()
-        response_writer.write_eof()
+        self._write_response(res, response_writer)
         await response_writer.drain()
         response_writer.close()
+
+    def handle_error(self, res, e):
+        res.write(res.status_code)
+
+    def _write_response(self, res, writer):
+        writer.write(b'HTTP/1.0 %s\r\n' % res.status_code.encode())
+        for key, value in res.headers.items():
+            writer.write(key.encode() + b': ' + value.encode())
+        writer.write(b'\r\n')
+        for chunk in res._chunks:
+            print('writing' + chunk)
+            writer.write(b'hello')
+            # writer.write(chunk.encode())
+        writer.write_eof()
 
     def serve(self):
         loop = asyncio.get_event_loop()

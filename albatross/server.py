@@ -146,6 +146,7 @@ class Server:
 
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.initialize())
+        print('Serving on %s:%d' % (host, port))
         loop.create_task(asyncio.start_server(self._handle, host, port))
         loop.run_forever()
         loop.close()

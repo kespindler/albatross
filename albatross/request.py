@@ -3,7 +3,6 @@ import ujson as json
 import re
 
 
-
 class Request:
     """
     Attributes:

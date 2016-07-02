@@ -4,6 +4,7 @@ import urllib.parse as parse
 from albatross import Request, Response
 from albatross.status_codes import HTTP_404, HTTP_500, HTTP_405
 from albatross.http_error import HTTPError
+import traceback
 
 
 class Server:
@@ -17,6 +18,7 @@ class Server:
         self._handlers = []
         self._middleware = []
         self.max_read_chunk = 1024*1024
+        self.debug = False
 
     def get_handler(self, path):
         for route, handler in self._handlers:
@@ -37,7 +39,7 @@ class Server:
         headers = {}
         for l in lines:
             key, value = l.split(': ', 1)
-            headers[key] = value
+            headers[key] = value.strip()
         return headers
 
     async def _parse_request(self, request_reader):
@@ -69,7 +71,12 @@ class Server:
 
         path = url.path
         query = url.query
-        return method, path, query, body
+
+        handler, args = self.get_handler(path)
+
+        req = Request(method, path, query, body, args, headers)
+
+        return req, handler
 
     async def _route_request(self, handler, req, res):
         method = req.method
@@ -93,15 +100,11 @@ class Server:
         :param response_writer:
         :return:
         """
-        method, path, query, body = await self._parse_request(request_reader)
+        req, handler = await self._parse_request(request_reader)
 
         res = Response()
 
         try:
-            handler, args = self.get_handler(path)
-
-            req = Request(method, path, query, body, args)
-
             for middleware in self._middleware:
                 await middleware.process_request(req, res, handler)
 
@@ -123,6 +126,7 @@ class Server:
 
     def handle_error(self, res, e):
         res.write(res.status_code)
+        traceback.print_exc()
 
     def _write_response(self, res, writer):
         writer.write(b'HTTP/1.0 %s\r\n' % res.status_code.encode())
@@ -133,8 +137,15 @@ class Server:
             writer.write(chunk.encode())
         writer.write_eof()
 
-    def serve(self):
+    async def initialize(self):
+        pass
+
+    def serve(self, port=8000, host='0.0.0.0', debug=False):
+        if debug:
+            self.debug = True
+
         loop = asyncio.get_event_loop()
-        loop.create_task(asyncio.start_server(self._handle, '0.0.0.0', 8000))
+        loop.run_until_complete(self.initialize())
+        loop.create_task(asyncio.start_server(self._handle, host, port))
         loop.run_forever()
         loop.close()

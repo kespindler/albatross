@@ -1,4 +1,5 @@
 from albatross import status_codes
+import ujson as json
 
 
 class Response:
@@ -21,3 +22,14 @@ class Response:
 
     def clear(self):
         self._chunks = []
+
+    def write_json(self, data):
+        self.headers['Content-Type'] = 'application/json'
+        self._chunks.append(json.dumps(data))
+
+    def redirect(self, location, permanent=False):
+        self.headers['Location'] = location
+        if permanent:
+            self.status_code = status_codes.HTTP_301
+        else:
+            self.status_code = status_codes.HTTP_302

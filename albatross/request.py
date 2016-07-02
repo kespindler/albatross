@@ -11,10 +11,19 @@ class Request:
         body (str): Request body
         args (dict): Dictionary of named parameters in route regex
     """
-    def __init__(self, method, path, query_string, body, args):
+    def __init__(self, method, path, query_string, body, args, headers):
         self.method = method
         self.path = path
         self.query_string = query_string
         self.body = body
         self.query = parse.parse_qs(query_string)
         self.args = args
+        self.headers = headers
+        self.form = None
+        if body:
+            self._parse_body()
+
+    def _parse_body(self):
+        if self.headers['Content-Type'] == 'application/x-www-form-urlencoded':
+            self.form = parse.parse_qs(self.body)
+

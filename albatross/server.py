@@ -19,6 +19,7 @@ class Server:
         self._middleware = []
         self.max_read_chunk = 1024*1024
         self.debug = False
+        self.spoof_options = True
 
     def get_handler(self, path):
         for route, handler in self._handlers:
@@ -38,8 +39,11 @@ class Server:
     def _parse_header_lines(self, lines):
         headers = {}
         for l in lines:
-            key, value = l.split(': ', 1)
-            headers[key] = value.strip()
+            try:
+                key, value = l.split(':', 1)
+                headers[key] = value.strip()
+            except ValueError:
+                pass
         return headers
 
     async def _parse_request(self, request_reader):
@@ -90,6 +94,11 @@ class Server:
             await handler.on_put(req, res)
         elif method == 'DELETE' and hasattr(handler, 'on_delete'):
             await handler.on_delete(req, res)
+        elif method == 'OPTIONS':
+            if hasattr(handler, 'on_options'):
+                await handler.on_options(req, res)
+            elif self.spoof_options:
+                res.headers['Allow'] = 'GET,POST,DELETE,PUT'
         else:
             raise HTTPError(HTTP_405)
 
@@ -109,9 +118,6 @@ class Server:
                 await middleware.process_request(req, res, handler)
 
             await self._route_request(handler, req, res)
-
-            for middleware in self._middleware:
-                await middleware.process_response(req, res, handler)
         except Exception as e:
             res.clear()
             if isinstance(e, HTTPError):
@@ -119,6 +125,9 @@ class Server:
             else:
                 res.status_code = HTTP_500
             self.handle_error(res, e)
+
+        for middleware in self._middleware:
+            await middleware.process_response(req, res, handler)
 
         self._write_response(res, response_writer)
         await response_writer.drain()

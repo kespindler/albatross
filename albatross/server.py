@@ -143,7 +143,7 @@ class Server:
             writer.write(key.encode() + b': ' + value.encode() + b'\r\n')
         writer.write(b'\r\n')
         for chunk in res._chunks:
-            writer.write(chunk.encode())
+            writer.write(chunk)
         writer.write_eof()
 
     async def initialize(self):

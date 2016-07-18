@@ -1,6 +1,7 @@
 import re
 import asyncio
 import urllib.parse as parse
+from datetime import datetime
 from albatross import Request, Response
 from albatross.status_codes import HTTP_404, HTTP_500, HTTP_405
 from albatross.http_error import HTTPError
@@ -141,6 +142,16 @@ class Server:
         writer.write(b'HTTP/1.0 %s\r\n' % res.status_code.encode())
         for key, value in res.headers.items():
             writer.write(key.encode() + b': ' + value.encode() + b'\r\n')
+        for key, value in res.cookies.items():
+            if isinstance(value, tuple):
+                value, duration = value
+                if isinstance(duration, datetime):
+                    duration = duration.strftime('%a %d %b %Y %H:%M:%S GMT')
+                    writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (key.encode(), value.encode(), duration))
+                elif isinstance(duration, int):
+                    writer.write(b'Set-Cookie: %s=%s;max-age=%s\r\n' % (key.encode(), value.encode(), duration))
+            else:
+                writer.write(b'Set-Cookie: %s=%s\r\n' % (key.encode(), value.encode()))
         writer.write(b'\r\n')
         for chunk in res._chunks:
             writer.write(chunk)

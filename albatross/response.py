@@ -16,6 +16,7 @@ class Response:
         self.headers = {
             'Content-Type': 'text/html'
         }
+        self.cookies = {}
 
     def clear(self):
         self._chunks = []

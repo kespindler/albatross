@@ -22,9 +22,16 @@ class Request:
         self.query = parse.parse_qs(query_string)
         self.args = args
         self.headers = headers
+        self.cookies = {}
         self.form = None
         if body:
             self._parse_body()
+        if 'Cookie' in headers:
+            self.cookies = self._parse_cookie(headers['Cookie'])
+
+    def _parse_cookie(self, value):
+        cookie_pairs = re.findall('(\w+)=([^,;]+)', value)
+        return dict(cookie_pairs)
 
     def _parse_form(self):
         content_type = self.headers['Content-Type']

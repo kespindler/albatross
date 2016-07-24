@@ -109,11 +109,12 @@ class Server:
         :param response_writer:
         :return:
         """
-        req, handler = await self._parse_request(request_reader)
-
         res = Response()
-
+        req, handler = await self._parse_request(request_reader)
         try:
+            if handler is None:
+                raise HTTPError(HTTP_404)
+
             for middleware in self._middleware:
                 await middleware.process_request(req, res, handler)
 

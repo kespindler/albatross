@@ -20,6 +20,7 @@ class TimingMiddleware:
 class Handler:
     async def on_get(self, req, res):
         await asyncio.sleep(0.1)
+        res.write('OK')
 
 
 app = Server()

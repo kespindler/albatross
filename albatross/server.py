@@ -19,7 +19,6 @@ class Server:
         self._handlers = []
         self._middleware = []
         self.max_read_chunk = 1024*1024
-        self.debug = False
         self.spoof_options = True
 
     def get_handler(self, path):
@@ -160,10 +159,7 @@ class Server:
     async def initialize(self):
         pass
 
-    def serve(self, port=8000, host='0.0.0.0', debug=False):
-        if debug:
-            self.debug = True
-
+    def serve(self, port=8000, host='0.0.0.0'):
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.initialize())
         print('Serving on %s:%d' % (host, port))

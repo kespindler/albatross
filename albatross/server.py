@@ -65,12 +65,11 @@ class Server:
         body = None
         if method in {'POST', 'PUT'}:
             body_parts = []
-            content_length = int(headers.get('Content-Length', 0))
-            while content_length > 0:
-                read_chunk = max(content_length, self.max_read_chunk)
-                body = await request_reader.read(read_chunk)
+            while True:
+                body = await request_reader.read(self.max_read_chunk)
+                if not body:
+                    break
                 body_parts.append(body.decode())
-                content_length -= read_chunk
             body = ''.join(body_parts)
 
         path = url.path

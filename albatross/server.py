@@ -62,22 +62,25 @@ class Server:
 
         headers = self._parse_header_lines(header_lines)
 
-        body = None
+        raw_body = None
         if method in {'POST', 'PUT'}:
             body_parts = []
-            while True:
-                body = await request_reader.read(self.max_read_chunk)
-                if not body:
-                    break
-                body_parts.append(body.decode())
-            body = ''.join(body_parts)
+            content_length = int(headers['Content-Length'])
+            while content_length > 0:
+                chunk_size = min(content_length, self.max_read_chunk)
+                body = await request_reader.read(chunk_size)
+                print(body[:10], len(body), content_length)
+                content_length -= len(body)
+                body_parts.append(body)
+            raw_body = b''.join(body_parts)
+            del body_parts
 
         path = url.path
         query = url.query
 
         handler, args = self.get_handler(path)
 
-        req = Request(method, path, query, body, args, headers)
+        req = Request(method, path, query, raw_body, args, headers)
 
         return req, handler
 

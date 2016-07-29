@@ -1,6 +1,8 @@
 import urllib.parse as parse
 import ujson as json
 import re
+import cgi
+import io
 
 
 class Request:
@@ -14,18 +16,17 @@ class Request:
         args (dict): Dictionary of named parameters in route regex
         form (dict): Dictionary of body parameters
     """
-    def __init__(self, method, path, query_string, body, args, headers):
+    def __init__(self, method, path, query_string, raw_body, args, headers):
         self.method = method
         self.path = path
         self.query_string = query_string
-        self.body = body
         self.query = parse.parse_qs(query_string)
         self.args = args
         self.headers = headers
         self.cookies = {}
         self.form = None
-        if body:
-            self._parse_body()
+        if raw_body:
+            self._parse_body(raw_body)
         if 'Cookie' in headers:
             self.cookies = self._parse_cookie(headers['Cookie'])
 
@@ -33,21 +34,18 @@ class Request:
         cookie_pairs = re.findall('(\w+)=([^,;]+)', value)
         return dict(cookie_pairs)
 
-    def _parse_form(self):
-        content_type = self.headers['Content-Type']
-        marker = 'boundary='
-        index = content_type.find(marker)
-        boundary = '--' + content_type[index + len(marker):]
-        values = {}
-        for group in re.findall('name=\"([a-zA-Z0-9-]+)\"\r\n\r\n(.*?)\r\n' + boundary, self.body,  re.MULTILINE):
-            values[group[0]] = group[1]
-        return values
+    def _parse_form(self, raw_body):
+        # TODO theres probably a way to not read whole body first)
+        fp = io.BytesIO(raw_body)
+        headers = {k.lower(): v for k, v in self.headers.items()}
+        form = cgi.FieldStorage(fp, headers=headers, environ={'REQUEST_METHOD': 'POST'})
+        return form
 
-    def _parse_body(self):
+    def _parse_body(self, raw_body):
         content_type = self.headers['Content-Type']
         if content_type == 'application/x-www-form-urlencoded':
-            self.form = parse.parse_qs(self.body)
+            self.form = parse.parse_qs(raw_body.decode())
         elif content_type == 'application/json':
-            self.form = json.loads(self.body)
+            self.form = json.loads(raw_body.decode())
         elif content_type.startswith('multipart/form-data'):
-            self.form = self._parse_form()
+            self.form = self._parse_form(raw_body)

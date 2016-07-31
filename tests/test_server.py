@@ -3,11 +3,19 @@ import asyncio
 from albatross import Server
 from aiohttp import client
 import socket
+from datetime import datetime
 
 
 class Handler:
     async def on_get(self, req, res):
         res.write('Hello World')
+
+    async def on_post(self, req, res):
+        name = req.form['name']
+        res.write_json({'name': name})
+        res.cookies['success'] = 'true'
+        res.cookies['expires_at'] = ('test1', datetime.utcnow())
+        res.cookies['expires_in'] = ('test1', 100)
 
 
 def get_free_port():
@@ -18,7 +26,7 @@ def get_free_port():
     return port
 
 
-class ServerTest(unittest.TestCase):
+class ServerIntegrationTest(unittest.TestCase):
     def setUp(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
@@ -34,15 +42,20 @@ class ServerTest(unittest.TestCase):
     def tearDown(self):
         self.server.close()
 
-    def get(self, path):
+    def request(self, method, path, data=None):
         async def go():
             self.session = client.ClientSession(loop=self.loop)
-            response = await self.session.get(self.url + path)
+            response = await self.session.request(method, self.url + path, data=data)
             bytes = await response.read()
             body = bytes.decode()
             return response, body
         return self.loop.run_until_complete(go())
 
     def test_hello_world(self):
-        response, body = self.get('/hello')
+        response, body = self.request('GET', '/hello')
         assert body == 'Hello World'
+
+    def test_hello_world_post(self):
+        response, body = self.request('POST', '/hello', data='name=mouse')
+        assert body == '{"name":"mouse"}', body
+        assert response.cookies['success'].value == 'true', response.cookies

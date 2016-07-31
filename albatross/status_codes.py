@@ -1,4 +1,4 @@
-# Stolen from https://github.com/falconry/falcon/blob/master/falcon/status_codes.py
+# Copied from https://github.com/falconry/falcon/blob/master/falcon/status_codes.py
 HTTP_100 = '100 Continue'
 HTTP_CONTINUE = HTTP_100
 HTTP_101 = '101 Switching Protocols'

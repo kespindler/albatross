@@ -1,3 +1,4 @@
+from albatross.data_types import ImmutableMultiDict, CaselessDict
 import urllib.parse as parse
 import ujson as json
 import re
@@ -23,16 +24,17 @@ class Request:
         self.query = parse.parse_qs(query_string)
         self.args = args
         self.headers = headers
-        self.cookies = {}
         self.form = None
         if raw_body:
             self._parse_body(raw_body)
         if 'Cookie' in headers:
             self.cookies = self._parse_cookie(headers['Cookie'])
+        else:
+            self.cookies = ImmutableMultiDict()
 
     def _parse_cookie(self, value):
         cookie_pairs = re.findall('(\w+)=([^,;]+)', value)
-        return dict(cookie_pairs)
+        return ImmutableMultiDict(cookie_pairs)
 
     def _parse_form(self, raw_body):
         # TODO theres probably a way to not read whole body first)
@@ -42,10 +44,10 @@ class Request:
         return form
 
     def _parse_body(self, raw_body):
-        content_type = self.headers['Content-Type']
-        if content_type == 'application/x-www-form-urlencoded':
-            self.form = parse.parse_qs(raw_body.decode())
-        elif content_type == 'application/json':
+        content_type = self.headers.get('Content-Type', '')
+        if content_type == 'application/json':
             self.form = json.loads(raw_body.decode())
         elif content_type.startswith('multipart/form-data'):
             self.form = self._parse_form(raw_body)
+        else:
+            self.form = ImmutableMultiDict(parse.parse_qs(raw_body.decode()))

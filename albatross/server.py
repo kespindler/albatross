@@ -5,6 +5,7 @@ from datetime import datetime
 from albatross import Request, Response
 from albatross.status_codes import HTTP_404, HTTP_500, HTTP_405
 from albatross.http_error import HTTPError
+from albatross.data_types import ImmutableCaselessDict
 import traceback
 
 
@@ -44,7 +45,7 @@ class Server:
                 headers[key] = value.strip()
             except ValueError:
                 pass
-        return headers
+        return ImmutableCaselessDict(*headers.items())
 
     async def _parse_request(self, request_reader):
         request_line = await request_reader.readline()
@@ -69,7 +70,6 @@ class Server:
             while content_length > 0:
                 chunk_size = min(content_length, self.max_read_chunk)
                 body = await request_reader.read(chunk_size)
-                print(body[:10], len(body), content_length)
                 content_length -= len(body)
                 body_parts.append(body)
             raw_body = b''.join(body_parts)
@@ -131,7 +131,11 @@ class Server:
         for middleware in self._middleware:
             await middleware.process_response(req, res, handler)
 
-        self._write_response(res, response_writer)
+        try:
+            self._write_response(res, response_writer)
+        except Exception as e:
+            traceback.print_exc()
+            print(e)
         await response_writer.drain()
         response_writer.close()
 
@@ -147,10 +151,10 @@ class Server:
             if isinstance(value, tuple):
                 value, duration = value
                 if isinstance(duration, datetime):
-                    duration = duration.strftime('%a %d %b %Y %H:%M:%S GMT')
-                    writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (key.encode(), value.encode(), duration))
+                    format = duration.strftime('%a %d %b %Y %H:%M:%S GMT').encode()
+                    writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (key.encode(), value.encode(), format))
                 elif isinstance(duration, int):
-                    writer.write(b'Set-Cookie: %s=%s;max-age=%s\r\n' % (key.encode(), value.encode(), duration))
+                    writer.write(b'Set-Cookie: %s=%s;max-age=%d\r\n' % (key.encode(), value.encode(), duration))
             else:
                 writer.write(b'Set-Cookie: %s=%s\r\n' % (key.encode(), value.encode()))
         writer.write(b'\r\n')

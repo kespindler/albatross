@@ -1,4 +1,4 @@
-COVERAGE=69
+COVERAGE=83
 TEST=nosetests -s --with-coverage --cover-package=albatross --cover-branches
 
 upload:

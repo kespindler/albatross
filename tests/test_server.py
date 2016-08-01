@@ -1,13 +1,12 @@
 import unittest
 import asyncio
 from albatross import Server
+from albatross.compat import json
 from aiohttp import client
 import socket
 from datetime import datetime
 from hashlib import md5
 from time import time
-import ujson as json
-
 
 BODY = b'--------------------------5969313f95a69716\r\nContent-Disposition: form-data; name="key1"\r\n\r\nvalue1\r\n--------------------------5969313f95a69716\r\nContent-Disposition: form-data; name="upload"; filename="test.txt"\r\nContent-Type: text/plain\r\n\r\nwhat a great file\n\r\n--------------------------5969313f95a69716--\r\n'
 
@@ -51,6 +50,7 @@ def get_free_port():
 
 
 class ServerIntegrationTest(unittest.TestCase):
+
     def setUp(self):
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)

@@ -1,6 +1,6 @@
 from albatross.data_types import ImmutableMultiDict
+from albatross.compat import json
 import urllib.parse as parse
-import ujson as json
 import cgi
 import io
 
@@ -10,6 +10,7 @@ def trim_keys(d):
 
 
 class FileStorage:
+
     def __init__(self, field_storage):
         self.filename = field_storage.filename
         self.value = field_storage.value
@@ -26,6 +27,7 @@ class Request:
         args (dict): Dictionary of named parameters in route regex
         form (dict): Dictionary of body parameters
     """
+
     def __init__(self, method, path, query_string, raw_body, args, headers):
         self.method = method
         self.path = path

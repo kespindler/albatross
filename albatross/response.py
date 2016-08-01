@@ -1,5 +1,5 @@
 from albatross import status_codes
-import ujson as json
+from albatross.compat import json
 from albatross.data_types import CaselessDict
 
 
@@ -11,11 +11,12 @@ class Response:
         body (str):
 
     """
+
     def __init__(self):
         self.status_code = status_codes.HTTP_200
         self._chunks = []
         self.headers = CaselessDict(
-           ('Content-Type', 'text/html')
+            ('Content-Type', 'text/html')
         )
         self.cookies = {}
 

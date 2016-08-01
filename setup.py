@@ -34,9 +34,7 @@ setup(
     ],
     keywords='web http server async',
     packages=['albatross'],
-    install_requires=[],
-    extras_require={
-        'dev': [],
-        'test': [],
-    },
+    install_requires=[
+        'ujson'
+    ],
 )

@@ -122,15 +122,11 @@ class Server:
             try:
                 await self._route_request(handler, req, res)
             except HTTPError as e:
-                res.clear()
-                res.status_code = e.status_code
                 self.handle_error(res, e)
 
             for middleware in self._middleware:
                 await middleware.process_response(req, res, handler)
         except Exception as e:
-            res.clear()
-            res.status_code = HTTP_500
             self.handle_error(res, e)
 
         self._write_response(res, response_writer)
@@ -138,7 +134,13 @@ class Server:
         response_writer.close()
 
     def handle_error(self, res, e):
-        res.write(res.status_code)
+        res.clear()
+        if isinstance(e, HTTPError):
+            res.status_code = e.status_code
+            res.write(e.message)
+        else:
+            res.status_code = HTTP_500
+            res.write(res.status_code)
         traceback.print_exc()
 
     def _write_response(self, res, writer):

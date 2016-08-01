@@ -1,4 +1,4 @@
-COVERAGE=90
+COVERAGE=95
 TEST=nosetests -s --with-coverage --cover-package=albatross --cover-branches $(TARGET)
 
 upload:

@@ -1,4 +1,7 @@
+[![Build Status](https://travis-ci.org/kespindler/albatross.svg?branch=master)](https://travis-ci.org/kespindler/albatross)
+
 # Albatross
+
 
 A modern, fast, simple, natively-async web framework. (Python3.5 only)
 

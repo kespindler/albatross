@@ -40,26 +40,29 @@ class CaselessDict(dict):
             kwargs = {k.lower(): v for k, v in kwargs.items()}
         super(CaselessDict, self).__init__(args, **kwargs)
 
+    def __contains__(self, k):
+        return super(CaselessDict, self).__contains__(k.lower())
+
     def __getitem__(self, k):
-        k = k.lower()
-        return super(CaselessDict, self).__getitem__(k)
+        return super(CaselessDict, self).__getitem__(k.lower())
 
     def __iter__(self):
-        for k, v in iter(self):
-            yield k.lower(), v
+        for k in super(CaselessDict, self).__iter__():
+            yield k.lower()
 
     def __setitem__(self, k, v):
         super(CaselessDict, self).__setitem__(k.lower(), v)
 
     def get(self, k, d=None):
-        k = k.lower()
         if k in self:
-            return super(CaselessDict, self).__getitem__(k)
+            return super(CaselessDict, self).__getitem__(k.lower())
         return d
 
     def update(self, other=None, **kwargs):
         updates = {k.lower(): v for k, v in kwargs.items()}
         if other:
+            if hasattr(other, 'items'):
+                other = other.items()
             updates.update(caseless_pairs(other))
         return super(CaselessDict, self).update(updates)
 

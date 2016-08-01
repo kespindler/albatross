@@ -111,31 +111,29 @@ class Server:
         :param response_writer:
         :return:
         """
-        req, handler = await self._parse_request(request_reader)
-
         res = Response()
 
         try:
+            req, handler = await self._parse_request(request_reader)
+
             for middleware in self._middleware:
                 await middleware.process_request(req, res, handler)
 
-            await self._route_request(handler, req, res)
+            try:
+                await self._route_request(handler, req, res)
+            except HTTPError as e:
+                res.clear()
+                res.status_code = e.status_code
+                self.handle_error(res, e)
+
+            for middleware in self._middleware:
+                await middleware.process_response(req, res, handler)
         except Exception as e:
             res.clear()
-            if isinstance(e, HTTPError):
-                res.status_code = e.status_code
-            else:
-                res.status_code = HTTP_500
+            res.status_code = HTTP_500
             self.handle_error(res, e)
 
-        for middleware in self._middleware:
-            await middleware.process_response(req, res, handler)
-
-        try:
-            self._write_response(res, response_writer)
-        except Exception as e:
-            traceback.print_exc()
-            print(e)
+        self._write_response(res, response_writer)
         await response_writer.drain()
         response_writer.close()
 
@@ -146,17 +144,17 @@ class Server:
     def _write_response(self, res, writer):
         writer.write(b'HTTP/1.0 %s\r\n' % res.status_code.encode())
         for key, value in res.headers.items():
-            writer.write(key.encode() + b': ' + value.encode() + b'\r\n')
+            writer.write(key.encode() + b': ' + str(value).encode() + b'\r\n')
         for key, value in res.cookies.items():
             if isinstance(value, tuple):
                 value, duration = value
                 if isinstance(duration, datetime):
                     format = duration.strftime('%a %d %b %Y %H:%M:%S GMT').encode()
-                    writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (key.encode(), value.encode(), format))
+                    writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (key.encode(), str(value).encode(), format))
                 elif isinstance(duration, int):
-                    writer.write(b'Set-Cookie: %s=%s;max-age=%d\r\n' % (key.encode(), value.encode(), duration))
+                    writer.write(b'Set-Cookie: %s=%s;max-age=%d\r\n' % (key.encode(), str(value).encode(), duration))
             else:
-                writer.write(b'Set-Cookie: %s=%s\r\n' % (key.encode(), value.encode()))
+                writer.write(b'Set-Cookie: %s=%s\r\n' % (key.encode(), str(value).encode()))
         writer.write(b'\r\n')
         for chunk in res._chunks:
             writer.write(chunk)

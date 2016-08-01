@@ -10,7 +10,7 @@ class RequestTest(unittest.TestCase):
             'POST', '/hello/test',
             'foo=baz', raw_body=b'one=two',
             args={'name': 'test'},
-            headers={}
+            headers={'Content-Type': 'application/x-www-form-urlencoded'}
         )
         assert r.method == 'POST'
         assert r.path == '/hello/test'
@@ -20,3 +20,31 @@ class RequestTest(unittest.TestCase):
         assert r.form.get('two') is None
         with self.assertRaises(HTTPError):
             assert r.form['three']
+
+    def test_request_cookie(self):
+        r = Request(
+            'GET', '/hello',
+            None, None, args={'name': 'test'},
+            headers={
+                'Cookie': 'token=bizbaz'
+            }
+        )
+        assert r.cookies['token'] == 'bizbaz'
+
+    def test_request_raw_body(self):
+        r = Request(
+            'POST', '/hello',
+            None, b'stream', args={},
+            headers={}
+        )
+        assert r.raw_body == b'stream'
+
+    def test_request_json(self):
+        r = Request(
+            'POST', '/hello',
+            None, b'{"my":"name"}', args={},
+            headers={
+                'Content-Type': 'application/json'
+            }
+        )
+        assert r.form == {'my': 'name'}

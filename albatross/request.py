@@ -1,9 +1,18 @@
-from albatross.data_types import ImmutableMultiDict, CaselessDict
+from albatross.data_types import ImmutableMultiDict
 import urllib.parse as parse
 import ujson as json
-import re
 import cgi
 import io
+
+
+def trim_keys(d):
+    return {k.strip(): v for k, v in d.items()}
+
+
+class FileStorage:
+    def __init__(self, field_storage):
+        self.filename = field_storage.filename
+        self.value = field_storage.value
 
 
 class Request:
@@ -21,9 +30,10 @@ class Request:
         self.method = method
         self.path = path
         self.query_string = query_string
-        self.query = parse.parse_qs(query_string)
+        self.query = ImmutableMultiDict(parse.parse_qs(query_string))
         self.args = args
         self.headers = headers
+        self.raw_body = None
         self.form = None
         if raw_body:
             self._parse_body(raw_body)
@@ -33,15 +43,20 @@ class Request:
             self.cookies = ImmutableMultiDict()
 
     def _parse_cookie(self, value):
-        cookie_pairs = re.findall('(\w+)=([^,;]+)', value)
-        return ImmutableMultiDict(cookie_pairs)
+        cookies = trim_keys(parse.parse_qs(value))
+        return ImmutableMultiDict(cookies)
 
     def _parse_form(self, raw_body):
         # TODO theres probably a way to not read whole body first)
         fp = io.BytesIO(raw_body)
-        headers = {k.lower(): v for k, v in self.headers.items()}
-        form = cgi.FieldStorage(fp, headers=headers, environ={'REQUEST_METHOD': 'POST'})
-        return form
+        form = cgi.FieldStorage(fp, headers=self.headers, environ={'REQUEST_METHOD': 'POST'})
+        d = {}
+        for k in form.keys():
+            if form[k].filename:
+                d[k] = [FileStorage(form[k])]
+            else:
+                d[k] = [form[k].value]
+        return ImmutableMultiDict(d)
 
     def _parse_body(self, raw_body):
         content_type = self.headers.get('Content-Type', '')
@@ -49,5 +64,7 @@ class Request:
             self.form = json.loads(raw_body.decode())
         elif content_type.startswith('multipart/form-data'):
             self.form = self._parse_form(raw_body)
-        else:
+        elif content_type == 'application/x-www-form-urlencoded':
             self.form = ImmutableMultiDict(parse.parse_qs(raw_body.decode()))
+        else:
+            self.raw_body = raw_body

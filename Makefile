@@ -1,5 +1,5 @@
-COVERAGE=83
-TEST=nosetests -s --with-coverage --cover-package=albatross --cover-branches
+COVERAGE=90
+TEST=nosetests -s --with-coverage --cover-package=albatross --cover-branches $(TARGET)
 
 upload:
 	git push

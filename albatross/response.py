@@ -1,5 +1,8 @@
 from albatross import status_codes
-import ujson as json
+try:
+    import ujson as json
+except ImportError:
+    import json
 from albatross.data_types import CaselessDict
 
 

@@ -1,6 +1,9 @@
 from albatross.data_types import ImmutableMultiDict
 import urllib.parse as parse
-import ujson as json
+try:
+    import ujson as json
+except ImportError:
+    import json
 import cgi
 import io
 

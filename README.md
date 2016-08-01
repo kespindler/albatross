@@ -2,7 +2,6 @@
 
 # Albatross
 
-
 A modern, fast, simple, natively-async web framework. (Python3.5 only)
 
 ```python
@@ -20,6 +19,12 @@ app = Server()
 app.add_route('/(?P<name>[a-z]+)', Handler())
 app.serve()
 ```
+
+### Notes for Usage
+
+For now (pre 1.0.0), I'm not guaranteeing the API stays the same. In particular, the add_route will
+likely change from regex to `{arg}`-based. But reach out if you want to use this, as I'm happy to
+incorporate your feedback!
 
 ## Install
 

@@ -117,6 +117,8 @@ class Server:
                 await handler.on_options(req, res)
             elif self.spoof_options:
                 res.headers['Allow'] = 'GET,POST,DELETE,PUT'
+            else:
+                raise HTTPError(HTTP_405)
         else:
             raise HTTPError(HTTP_405)
 

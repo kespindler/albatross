@@ -119,3 +119,33 @@ class ServerIntegrationTest(unittest.TestCase):
         self.server.add_middleware(TimingMiddleware())
         response, body = self.request('GET', '/hello')
         assert float(response.headers['Duration'])
+
+
+class FakeHandler:
+    def __init__(self, n):
+        self.n = n
+
+
+class ServerUnitTest(unittest.TestCase):
+    def setUp(self):
+        self.server = Server()
+        self.server.add_simple_route('/hello/{name}', FakeHandler(1))
+        self.server.add_simple_route('/hello', FakeHandler(2))
+        self.server.add_simple_route('/hello/{another}/motd', FakeHandler(3))
+
+    def test_simple_route(self):
+        handler, args = self.server.get_handler('/hello/test')
+        assert handler.n == 1
+        assert args == {'name': 'test'}, args
+
+        handler, args = self.server.get_handler('/hello')
+        assert handler.n == 2
+        assert args == {}
+
+        handler, args = self.server.get_handler('/hello/test/motd')
+        assert handler.n == 3
+        assert args == {'another': 'test'}
+
+        handler, args = self.server.get_handler('/hello/')
+        assert handler is None
+        assert args is None

@@ -9,6 +9,18 @@ from albatross.data_types import ImmutableCaselessDict
 import traceback
 
 
+def write_cookie(writer, key, value):
+    if isinstance(value, tuple):
+        value, duration = value
+        if isinstance(duration, datetime):
+            format = duration.strftime('%a %d %b %Y %H:%M:%S GMT').encode()
+            writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (key.encode(), str(value).encode(), format))
+        elif isinstance(duration, int):
+            writer.write(b'Set-Cookie: %s=%s;max-age=%d\r\n' % (key.encode(), str(value).encode(), duration))
+    else:
+        writer.write(b'Set-Cookie: %s=%s\r\n' % (key.encode(), str(value).encode()))
+
+
 class Server:
     """The core albatross server
 
@@ -144,19 +156,11 @@ class Server:
         traceback.print_exc()
 
     def _write_response(self, res, writer):
-        writer.write(b'HTTP/1.0 %s\r\n' % res.status_code.encode())
+        writer.write(b'HTTP/1.1 %s\r\n' % res.status_code.encode())
         for key, value in res.headers.items():
             writer.write(key.encode() + b': ' + str(value).encode() + b'\r\n')
         for key, value in res.cookies.items():
-            if isinstance(value, tuple):
-                value, duration = value
-                if isinstance(duration, datetime):
-                    format = duration.strftime('%a %d %b %Y %H:%M:%S GMT').encode()
-                    writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (key.encode(), str(value).encode(), format))
-                elif isinstance(duration, int):
-                    writer.write(b'Set-Cookie: %s=%s;max-age=%d\r\n' % (key.encode(), str(value).encode(), duration))
-            else:
-                writer.write(b'Set-Cookie: %s=%s\r\n' % (key.encode(), str(value).encode()))
+            write_cookie(writer, key, value)
         writer.write(b'\r\n')
         for chunk in res._chunks:
             writer.write(chunk)

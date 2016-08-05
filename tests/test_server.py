@@ -129,9 +129,9 @@ class FakeHandler:
 class ServerUnitTest(unittest.TestCase):
     def setUp(self):
         self.server = Server()
-        self.server.add_simple_route('/hello/{name}', FakeHandler(1))
-        self.server.add_simple_route('/hello', FakeHandler(2))
-        self.server.add_simple_route('/hello/{another}/motd', FakeHandler(3))
+        self.server.add_route('/hello/{name}', FakeHandler(1))
+        self.server.add_route('/hello', FakeHandler(2))
+        self.server.add_route('/hello/{another}/motd', FakeHandler(3))
 
     def test_simple_route(self):
         handler, args = self.server.get_handler('/hello/test')

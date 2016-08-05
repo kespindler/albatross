@@ -24,6 +24,7 @@ class Handler:
 
 
 app = Server()
-app.add_route('/(?P<name>[a-z]+)', Handler())
+app.add_route('/hello/{name}', Handler())
+app.add_regex_route('/.*', Handler())
 app.add_middleware(TimingMiddleware())
 app.serve()

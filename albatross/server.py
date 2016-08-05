@@ -41,14 +41,14 @@ class Server:
                 return handler, match.groupdict()
         return None, None
 
-    def add_route(self, route, handler):
+    def add_regex_route(self, route, handler):
         route += '$'
         compiled = re.compile(route)
         self._handlers.append((compiled, handler))
 
-    def add_simple_route(self, route, handler):
+    def add_route(self, route, handler):
         route = re.sub('{([-_a-zA-Z]+)}', '(?P<\g<1>>[^/?]+)', route)
-        self.add_route(route, handler)
+        self.add_regex_route(route, handler)
 
     def add_middleware(self, middleware):
         self._middleware.append(middleware)

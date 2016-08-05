@@ -69,3 +69,7 @@ class CaselessDict(dict):
 
 class ImmutableCaselessDict(Immutable, CaselessDict):
     pass
+
+
+class ImmutableCaselessMultiDict(ImmutableMultiDict, CaselessDict):
+    pass

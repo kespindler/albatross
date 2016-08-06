@@ -1,25 +1,20 @@
+# h11 code adapted from https://h11.readthedocs.io/en/latest/examples.html
+#  A simple HTTP server implemented using h11 and Curio:
+#   http://curio.readthedocs.org/
+#   (so requires python 3.5+).
+
 import re
 import asyncio
 import urllib.parse as parse
+from itertools import count
 from datetime import datetime
 from albatross import Request, Response
 from albatross.status_codes import HTTP_404, HTTP_500, HTTP_405
 from albatross.http_error import HTTPError
 from albatross.data_types import ImmutableCaselessDict
 import traceback
-
-
-def write_cookie(writer, key, value):
-    if isinstance(value, tuple):
-        value, duration = value
-        if isinstance(duration, datetime):
-            format = duration.strftime('%a %d %b %Y %H:%M:%S GMT').encode()
-            writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (key.encode(), str(value).encode(), format))
-        elif isinstance(duration, int):
-            writer.write(b'Set-Cookie: %s=%s;max-age=%d\r\n' % (key.encode(), str(value).encode(), duration))
-    else:
-        writer.write(b'Set-Cookie: %s=%s\r\n' % (key.encode(), str(value).encode()))
-
+from wsgiref.handlers import format_date_time
+import h11
 
 class Server:
     """The core albatross server
@@ -28,11 +23,20 @@ class Server:
         _handlers (list): a list of route-handler tuples
         _middleware (list): a list of middlewares to process requests
     """
+
+    _next_id = count()
+
     def __init__(self):
         self._handlers = []
         self._middleware = []
         self.max_read_chunk = 1024*1024
         self.spoof_options = True
+        self.conn = h11.Connection(h11.SERVER)
+        self.ident = " ".join([
+            "albatross-server/{}".format(h11.__version__),
+            h11.PRODUCT_ID,
+        ]).encode("ascii")
+        self._obj_id = next(Server._next_id)
 
     def get_handler(self, path):
         for route, handler in self._handlers:
@@ -41,17 +45,57 @@ class Server:
                 return handler, match.groupdict()
         return None, None
 
-    def add_regex_route(self, route, handler):
+    def add_route(self, route, handler):
         route += '$'
         compiled = re.compile(route)
         self._handlers.append((compiled, handler))
 
-    def add_route(self, route, handler):
-        route = re.sub('{([-_a-zA-Z]+)}', '(?P<\g<1>>[^/?]+)', route)
-        self.add_regex_route(route, handler)
-
     def add_middleware(self, middleware):
         self._middleware.append(middleware)
+
+    def basic_headers(self):
+        # HTTP requires these headers in all responses (client would do
+        # something different here)
+        return [
+            ("Date", format_date_time(None).encode("ascii")),
+            ("Server", self.ident),
+        ]
+
+    def info(self, *args):
+        # Little debugging method
+        # print("{}:".format(self._obj_id), *args)
+        return
+
+    async def send(self, event):
+        assert type(event) is not h11.ConnectionClosed
+        data = self.conn.send(event)
+
+        try:
+            self.writer.write(data)
+        except Exception as e:
+            print(e)
+
+    async def _read_from_peer(self, reader):
+        if self.conn.they_are_waiting_for_100_continue:
+            go_ahead = h11.InformationalResponse(
+                status_code=100,
+                headers=self.basic_headers())
+            await self.send(go_ahead)
+        try:
+            data = await reader.read(self.max_read_chunk)
+        except ConnectionError:
+            # They've stopped listening. Not much we can do about it here.
+            data = b""
+        self.conn.receive_data(data)
+
+    async def next_event(self, reader):
+        while True:
+            event = self.conn.next_event()
+            if event is h11.NEED_DATA:
+                await self._read_from_peer(reader)
+                continue
+            return event
+
 
     def _parse_header_lines(self, lines):
         headers = {}
@@ -64,41 +108,33 @@ class Server:
         return ImmutableCaselessDict(*headers.items())
 
     async def _parse_request(self, request_reader):
-        request_line = await request_reader.readline()
-        request_line = request_line.decode()
-        method, url_string, _ = request_line.split(' ', 2)
-        method = method.upper()
-        url = parse.urlparse(url_string)
+        # Read next event and see if it is a request
 
-        header_lines = []
-        while True:
-            l = await request_reader.readline()
-            if l == b'\r\n':
-                break
-            header_lines.append(l.decode())
+        event = await self.next_event(request_reader)
 
-        headers = self._parse_header_lines(header_lines)
+        if type(event) is h11.Request:
 
-        raw_body = None
-        if method in {'POST', 'PUT'}:
-            body_parts = []
-            content_length = int(headers['Content-Length'])
-            while content_length > 0:
-                chunk_size = min(content_length, self.max_read_chunk)
-                body = await request_reader.read(chunk_size)
-                content_length -= len(body)
-                body_parts.append(body)
-            raw_body = b''.join(body_parts)
-            del body_parts
+            # Gather request parts
+            path = event.target.decode("ascii")
+            method = event.method.decode("ascii")
+            headers = [(name.decode("ascii"), value.decode("ascii"))
+                       for (name, value) in event.headers]
+            query = ""
+            raw_body = ""
 
-        path = url.path
-        query = url.query
+            # Now get any data
+            while True:
+                event = await self.next_event(request_reader)
+                if type(event) is h11.EndOfMessage:
+                    break
+                assert type(event) is h11.Data
+                raw_body += event.data.decode("ascii")
 
-        handler, args = self.get_handler(path)
+            handler, args = self.get_handler(path)
 
-        req = Request(method, path, query, raw_body, args, headers)
+            req = Request(method, path, query, raw_body, args, headers)
 
-        return req, handler
+            return req, handler
 
     async def _route_request(self, handler, req, res):
         method = req.method
@@ -117,8 +153,6 @@ class Server:
                 await handler.on_options(req, res)
             elif self.spoof_options:
                 res.headers['Allow'] = 'GET,POST,DELETE,PUT'
-            else:
-                raise HTTPError(HTTP_405)
         else:
             raise HTTPError(HTTP_405)
 
@@ -129,6 +163,10 @@ class Server:
         :param response_writer:
         :return:
         """
+
+        self.reader = request_reader
+        self.writer = response_writer
+
         res = Response()
 
         try:
@@ -144,12 +182,25 @@ class Server:
 
             for middleware in self._middleware:
                 await middleware.process_response(req, res, handler)
+
         except Exception as e:
             self.handle_error(res, e)
 
-        self._write_response(res, response_writer)
+        await self._write_response(res, response_writer)
         await response_writer.drain()
         response_writer.close()
+
+        if self.conn.our_state is h11.MUST_CLOSE:
+            self.info("connection is not reusable, so shutting down")
+            return
+        else:
+            try:
+                self.info("trying to re-use connection")
+                self.conn.start_next_cycle()
+            except h11.ProtocolError:
+                states = self.conn.states
+                self.info("unexpected state", states, "-- bailing out")
+                return
 
     def handle_error(self, res, e):
         res.clear()
@@ -161,16 +212,23 @@ class Server:
             res.write(res.status_code)
         traceback.print_exc()
 
-    def _write_response(self, res, writer):
-        writer.write(b'HTTP/1.1 %s\r\n' % res.status_code.encode())
-        for key, value in res.headers.items():
-            writer.write(key.encode() + b': ' + str(value).encode() + b'\r\n')
-        for key, value in res.cookies.items():
-            write_cookie(writer, key, value)
-        writer.write(b'\r\n')
-        for chunk in res._chunks:
-            writer.write(chunk)
-        writer.write_eof()
+    async def send_simple_response(self, status_code, content_type, body):
+        self.info("Sending", status_code,
+                  "response with", len(body), "bytes")
+        headers = self.basic_headers()
+        headers.append(("Content-Type", content_type))
+        headers.append(("Content-Length", str(len(body))))
+
+        res = h11.Response(status_code=200, headers=headers)
+
+        await self.send(res)
+        await self.send(h11.Data(data=body))
+        await self.send(h11.EndOfMessage())
+
+    async def _write_response(self, res, writer):
+        content_type = "text/plain"
+        body = res._chunks[0]
+        await self.send_simple_response(res.status_code, content_type, body)
 
     async def initialize(self):
         pass

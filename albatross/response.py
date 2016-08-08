@@ -1,6 +1,7 @@
 from albatross import status_codes
 from albatross.compat import json
 from albatross.data_types import CaselessDict
+from albatross.http_error import HTTPError
 
 
 class Response:
@@ -39,3 +40,4 @@ class Response:
             self.status_code = status_codes.HTTP_301
         else:
             self.status_code = status_codes.HTTP_302
+        raise HTTPError(self.status_code)

@@ -63,7 +63,7 @@ class Server:
                 pass
         return ImmutableCaselessDict(*headers.items())
 
-    async def _parse_request(self, request_reader):
+    async def _parse_request(self, request_reader, response_writer):
         request_line = await request_reader.readline()
         request_line = request_line.decode()
         method, url_string, _ = request_line.split(' ', 2)
@@ -78,6 +78,8 @@ class Server:
             header_lines.append(l.decode())
 
         headers = self._parse_header_lines(header_lines)
+        if headers.get('Expect') == '100-continue':
+            response_writer.write(b'HTTP/1.1 100 (Continue)\r\n\r\n')
 
         raw_body = None
         if method in {'POST', 'PUT'}:
@@ -132,7 +134,7 @@ class Server:
         res = Response()
 
         try:
-            req, handler = await self._parse_request(request_reader)
+            req, handler = await self._parse_request(request_reader, response_writer)
 
             for middleware in self._middleware:
                 await middleware.process_request(req, res, handler)

@@ -16,15 +16,16 @@ class Handler:
 
 
 app = Server()
-app.add_route('/(?P<name>[a-z]+)', Handler())
+app.add_route('/{name})', Handler())
 app.serve()
 ```
 
 ### Notes for Usage
 
-For now (pre 1.0.0), I'm not guaranteeing the API stays the same. In particular, the add_route will
-likely change from regex to `{arg}`-based. But reach out if you want to use this, as I'm happy to
-incorporate your feedback!
+For now (pre 1.0.0), I'm not guaranteeing the API stays the same. The current HTTP implementation
+has some deviations with the HTTP standard (see Issues), but this web framework is a joy to work
+with for some current toy projects. Fixing the HTTP standards issue will be done in the next few
+weeks. Reach out if you want to use this, as I'm happy to incorporate your feedback!
 
 ## Install
 
@@ -37,3 +38,9 @@ incorporate your feedback!
 - It's natively async
 
 - This works with the `uvloop` project, to make your server fast!
+
+## Benchmarks
+
+- My benchmarks indicate that albatross is as fast as aiohttp, both of which are twice as fast as
+  tornado. You can run the benchmarks by poking around in the `bench/` folder.
+

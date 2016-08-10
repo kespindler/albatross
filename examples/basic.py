@@ -18,7 +18,7 @@ class TimingMiddleware:
 
 
 class Handler:
-    async def on_get(self, req, res):
+    async def on_post(self, req, res):
         await asyncio.sleep(0.1)
         res.write('OK')
 
@@ -26,5 +26,5 @@ class Handler:
 app = Server()
 app.add_route('/hello/{name}', Handler())
 app.add_regex_route('/.*', Handler())
-app.add_middleware(TimingMiddleware())
+# app.add_middleware(TimingMiddleware())
 app.serve()

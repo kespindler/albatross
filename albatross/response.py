@@ -16,9 +16,9 @@ class Response:
     def __init__(self):
         self.status_code = status_codes.HTTP_200
         self._chunks = []
-        self.headers = CaselessDict(
+        self.headers = CaselessDict([
             ('Content-Type', 'text/html')
-        )
+        ])
         self.cookies = {}
 
     def clear(self):

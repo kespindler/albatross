@@ -18,9 +18,9 @@ function run_ab_post() {
   wait $PID
 }
 
-run_ab albatross hello
-run_ab tornado hello
-run_ab aiohttp hello
+# run_ab albatross hello
+# run_ab tornado hello
+# run_ab aiohttp hello
 
 run_ab_post albatross form
 run_ab_post tornado form

@@ -7,6 +7,12 @@ from albatross.status_codes import HTTP_404, HTTP_500, HTTP_405
 from albatross.http_error import HTTPError
 from albatross.data_types import ImmutableCaselessDict
 import traceback
+from httptools import HttpRequestParser
+from albatross.request import (
+    REQ_STATE_EXPECT_CONTINUE,
+    REQ_STATE_FINISHED,
+    REQ_STATE_PROCESSING,
+)
 
 
 def write_cookie(writer, key, value):
@@ -53,52 +59,23 @@ class Server:
     def add_middleware(self, middleware):
         self._middleware.append(middleware)
 
-    def _parse_header_lines(self, lines):
-        headers = {}
-        for l in lines:
-            try:
-                key, value = l.split(':', 1)
-                headers[key] = value.strip()
-            except ValueError:
-                pass
-        return ImmutableCaselessDict(*headers.items())
-
     async def _parse_request(self, request_reader, response_writer):
-        request_line = await request_reader.readline()
-        request_line = request_line.decode()
-        method, url_string, _ = request_line.split(' ', 2)
-        method = method.upper()
-        url = parse.urlparse(url_string)
+        req = Request()
+        parser = HttpRequestParser(req)
 
-        header_lines = []
         while True:
-            l = await request_reader.readline()
-            if l == b'\r\n':
+            chunk = await request_reader.read(self.max_read_chunk)
+            parser.feed_data(chunk)
+            if req._state == REQ_STATE_FINISHED:
                 break
-            header_lines.append(l.decode())
+            elif req._state == REQ_STATE_EXPECT_CONTINUE:
+                response_writer.write(b'HTTP/1.1 100 (Continue)\r\n\r\n')
+                req._state = REQ_STATE_PROCESSING
 
-        headers = self._parse_header_lines(header_lines)
-        if headers.get('Expect') == '100-continue':
-            response_writer.write(b'HTTP/1.1 100 (Continue)\r\n\r\n')
+        handler, args = self.get_handler(req.path)
 
-        raw_body = None
-        if method in {'POST', 'PUT'}:
-            body_parts = []
-            content_length = int(headers['Content-Length'])
-            while content_length > 0:
-                chunk_size = min(content_length, self.max_read_chunk)
-                body = await request_reader.read(chunk_size)
-                content_length -= len(body)
-                body_parts.append(body)
-            raw_body = b''.join(body_parts)
-            del body_parts
-
-        path = url.path
-        query = url.query
-
-        handler, args = self.get_handler(path)
-
-        req = Request(method, path, query, raw_body, args, headers)
+        req.method = parser.get_method().decode().upper()
+        req.args = args
 
         return req, handler
 

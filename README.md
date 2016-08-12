@@ -22,10 +22,9 @@ app.serve()
 
 ### Notes for Usage
 
-For now (pre 1.0.0), I'm not guaranteeing the API stays the same. The current HTTP implementation
-has some deviations with the HTTP standard (see Issues), but this web framework is a joy to work
-with for some current toy projects. Fixing the HTTP standards issue will be done in the next few
-weeks. Reach out if you want to use this, as I'm happy to incorporate your feedback!
+For now (pre 1.0.0), I'm making no claims about API stability (but will try to avoid it!). That said,
+I'm using this framework for some small projects, and it is a joy to work in!
+Reach out if you want to use this, as I'm happy to incorporate your feedback!
 
 ## Install
 
@@ -35,7 +34,7 @@ weeks. Reach out if you want to use this, as I'm happy to incorporate your feedb
 
 - You can read the entire codebase in about 30 minutes.
 
-- It's natively async
+- It's natively async. Doing `await` database calls or controller calls in your views just works!
 
 - This works with the `uvloop` project, to make your server fast!
 

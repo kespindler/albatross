@@ -6,6 +6,7 @@ from albatross import Request, Response
 from albatross.status_codes import HTTP_404, HTTP_500, HTTP_405
 from albatross.http_error import HTTPError
 from albatross.data_types import ImmutableCaselessDict
+from httptools import HttpRequestParser
 import traceback
 
 
@@ -64,42 +65,20 @@ class Server:
         return ImmutableCaselessDict(*headers.items())
 
     async def _parse_request(self, request_reader, response_writer):
-        request_line = await request_reader.readline()
-        request_line = request_line.decode()
-        method, url_string, _ = request_line.split(' ', 2)
-        method = method.upper()
-        url = parse.urlparse(url_string)
+        req = Request()
 
-        header_lines = []
+        parser = HttpRequestParser(req)
+
         while True:
-            l = await request_reader.readline()
-            if l == b'\r\n':
+            data = await request_reader.read(self.max_read_chunk)
+            parser.feed_data(data)
+            if req.finished:
                 break
-            header_lines.append(l.decode())
 
-        headers = self._parse_header_lines(header_lines)
-        if headers.get('Expect') == '100-continue':
-            response_writer.write(b'HTTP/1.1 100 (Continue)\r\n\r\n')
+        handler, args = self.get_handler(req.path)
 
-        raw_body = None
-        if method in {'POST', 'PUT'}:
-            body_parts = []
-            content_length = int(headers['Content-Length'])
-            while content_length > 0:
-                chunk_size = min(content_length, self.max_read_chunk)
-                body = await request_reader.read(chunk_size)
-                content_length -= len(body)
-                body_parts.append(body)
-            raw_body = b''.join(body_parts)
-            del body_parts
-
-        path = url.path
-        query = url.query
-
-        handler, args = self.get_handler(path)
-
-        req = Request(method, path, query, raw_body, args, headers)
-
+        req.method = parser.get_method().decode().upper()
+        req.args = args
         return req, handler
 
     async def _route_request(self, handler, req, res):

@@ -1,8 +1,16 @@
-from albatross.data_types import ImmutableMultiDict
+from albatross.data_types import (
+    ImmutableMultiDict,
+    ImmutableCaselessMultiDict
+)
 from albatross.compat import json
 import urllib.parse as parse
+from httptools import parse_url
 import cgi
 import io
+
+
+REQUEST_STATE_PROCESSING = 0
+REQUEST_STATE_COMPLETE = 1
 
 
 def trim_keys(d):
@@ -28,21 +36,18 @@ class Request:
         form (dict): Dictionary of body parameters
     """
 
-    def __init__(self, method, path, query_string, raw_body, args, headers):
-        self.method = method
-        self.path = path
-        self.query_string = query_string
-        self.query = ImmutableMultiDict(parse.parse_qs(query_string))
-        self.args = args
-        self.headers = headers
+    def __init__(self):
+        self.method = None
+        self.path = None
+        self.query_string = ''
+        self.query = None
+        self.args = None  # TODO
+        self.headers = ImmutableCaselessMultiDict()
         self.raw_body = None
         self.form = None
-        if raw_body:
-            self._parse_body(raw_body)
-        if 'Cookie' in headers:
-            self.cookies = self._parse_cookie(headers['Cookie'])
-        else:
-            self.cookies = ImmutableMultiDict()
+        self._header_list = []
+        self._state = REQUEST_STATE_PROCESSING
+        self.cookies = ImmutableMultiDict()
 
     def _parse_cookie(self, value):
         cookies = trim_keys(parse.parse_qs(value))
@@ -51,7 +56,8 @@ class Request:
     def _parse_form(self, raw_body):
         # TODO theres probably a way to not read whole body first)
         fp = io.BytesIO(raw_body)
-        form = cgi.FieldStorage(fp, headers=self.headers, environ={'REQUEST_METHOD': 'POST'})
+        env = {'REQUEST_METHOD': 'POST'}
+        form = cgi.FieldStorage(fp, headers=self.headers, environ=env)
         d = {}
         for k in form.keys():
             if form[k].filename:
@@ -70,3 +76,29 @@ class Request:
             self.form = ImmutableMultiDict(parse.parse_qs(raw_body.decode()))
         else:
             self.raw_body = raw_body
+
+    # HTTPRequestParser protocol methods
+    def on_url(self, url: bytes):
+        parsed = parse_url(url)
+        self.path = parsed.path.decode()
+        self.query_string = (parsed.query or b'').decode()
+        self.query = ImmutableMultiDict(parse.parse_qs(self.query_string))
+
+    def on_header(self, name: bytes, value: bytes):
+        self._header_list.append((name.decode(), value.decode()))
+
+    def on_headers_complete(self):
+        self.headers = ImmutableCaselessMultiDict(self._header_list)
+        cookie_value = self.headers.get('Cookie')
+        if cookie_value:
+            self.cookies = self._parse_cookie(cookie_value)
+
+    def on_body(self, body: bytes):
+        self._parse_body(body)
+
+    def on_message_complete(self):
+        self._state = REQUEST_STATE_COMPLETE
+
+    @property
+    def finished(self):
+        return self._state == REQUEST_STATE_COMPLETE

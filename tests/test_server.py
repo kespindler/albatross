@@ -8,7 +8,7 @@ from datetime import datetime
 from hashlib import md5
 from time import time
 
-BODY = b'--------------------------5969313f95a69716\r\nContent-Disposition: form-data; name="key1"\r\n\r\nvalue1\r\n--------------------------5969313f95a69716\r\nContent-Disposition: form-data; name="upload"; filename="test.txt"\r\nContent-Type: text/plain\r\n\r\nwhat a great file\n\r\n--------------------------5969313f95a69716--\r\n'
+BODY = b'--------------------------5969313f95a69716\r\nContent-Disposition: form-data; name="key1"\r\n\r\nvalue1\r\n--------------------------5969313f95a69716\r\nContent-Disposition: form-data; name="upload"; filename="test.txt"\r\nContent-Type: text/plain\r\n\r\nwhat a great file\n\r\n--------------------------5969313f95a69716--\r\n'  # noqa
 
 
 class Handler:
@@ -60,7 +60,9 @@ class ServerIntegrationTest(unittest.TestCase):
         self.port = get_free_port()
         self.url = 'http://127.0.0.1:%d' % (self.port, )
         self.async_server = self.loop.run_until_complete(
-            asyncio.start_server(self.server._handle, '127.0.0.1', self.port, loop=self.loop)
+            asyncio.start_server(
+                self.server._handle, '127.0.0.1', self.port, loop=self.loop
+            )
         )
 
     def tearDown(self):
@@ -69,7 +71,10 @@ class ServerIntegrationTest(unittest.TestCase):
     def request(self, method, path, data=None, headers=None):
         async def go():
             self.session = client.ClientSession(loop=self.loop)
-            response = await self.session.request(method, self.url + path, data=data, headers=headers)
+            response = await self.session.request(
+                method, self.url + path,
+                data=data, headers=headers
+            )
             bytes = await response.read()
             body = bytes.decode()
             self.session.close()
@@ -83,7 +88,9 @@ class ServerIntegrationTest(unittest.TestCase):
     def test_hello_world_post(self):
         response, body = self.request(
             'POST', '/hello',
-            data='name=mouse', headers={'Content-Type': 'application/x-www-form-urlencoded'}
+            data='name=mouse', headers={
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
         )
         assert body == '{"name":"mouse"}', body
         assert response.cookies['success'].value == 'true', response.cookies
@@ -92,7 +99,7 @@ class ServerIntegrationTest(unittest.TestCase):
         response, body = self.request(
             'PUT', '/hello',
             data=BODY, headers={
-                'Content-Type': 'multipart/form-data; boundary=------------------------5969313f95a69716'
+                'Content-Type': 'multipart/form-data; boundary=------------------------5969313f95a69716'  # noqa
             }
         )
         assert response.status == 200, response.status

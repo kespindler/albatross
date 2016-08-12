@@ -1,5 +1,8 @@
 import unittest
-from albatross.data_types import ImmutableMultiDict, CaselessDict
+from albatross.data_types import (
+    ImmutableMultiDict, CaselessDict,
+    ImmutableCaselessMultiDict
+)
 
 
 class ImmutableMultiDictTest(unittest.TestCase):
@@ -28,3 +31,34 @@ class CaselessDictTest(unittest.TestCase):
         z = CaselessDict(One='two')
         z.update(two=2)
         assert z['TWO'] == 2
+
+    def test_caseless_iterable_init(self):
+        z = CaselessDict([
+            ('ONE', 1),
+            ('TWO', 2),
+            ('THREE', 3),
+        ])
+        assert z['one'] == 1
+        assert z['tWO'] == 2
+        assert z['thRee'] == 3
+
+
+class ImmutableCaselessMultiDictTest(unittest.TestCase):
+    def test_immutable_caseless_multi_dict(self):
+        z = ImmutableCaselessMultiDict([
+            ('one', 1),
+            ('ONE', 'I'),
+            ('tWO', 2),
+            ('TwO', 'II'),
+        ])
+
+        assert z['one'] == 1, z
+        assert z.get('one') == 1
+        assert z.get_all('one') == [1, 'I']
+
+        assert z['TWO'] == 2
+        assert z.get('Two') == 2
+        assert z.get_all('TWO') == [2, 'II']
+
+        assert z.get('three') is None
+        assert z.get_all('three') is None

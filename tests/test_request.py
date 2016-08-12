@@ -6,45 +6,36 @@ from albatross.http_error import HTTPError
 class RequestTest(unittest.TestCase):
 
     def test_request(self):
-        r = Request(
-            'POST', '/hello/test',
-            'foo=baz', raw_body=b'one=two',
-            args={'name': 'test'},
-            headers={'Content-Type': 'application/x-www-form-urlencoded'}
-        )
+        r = Request()
+        r.method = 'POST'
+        r.on_url(b'/hello/test?foo=baz')
+        r.args = {'name': 'test'}
+        r.on_header(b'CONTENT-TYPE', b'application/x-www-form-urlencoded')
+        r.on_headers_complete()
+        r.on_body(b'one=two')
         assert r.method == 'POST'
         assert r.path == '/hello/test'
         assert r.query_string == 'foo=baz'
         assert r.form['one'] == 'two'
         assert r.form.get('one') == 'two'
-        assert r.form.get('two') is None
+        assert r.form.get('ONE') is None
         with self.assertRaises(HTTPError):
-            assert r.form['three']
+            assert r.form['ONE']
 
     def test_request_cookie(self):
-        r = Request(
-            'GET', '/hello',
-            None, None, args={'name': 'test'},
-            headers={
-                'Cookie': 'token=bizbaz'
-            }
-        )
+        r = Request()
+        r.on_header(b'COOKIE', b'token=bizbaz')
+        r.on_headers_complete()
         assert r.cookies['token'] == 'bizbaz'
 
     def test_request_raw_body(self):
-        r = Request(
-            'POST', '/hello',
-            None, b'stream', args={},
-            headers={}
-        )
+        r = Request()
+        r._parse_body(b'stream')
         assert r.raw_body == b'stream'
 
     def test_request_json(self):
-        r = Request(
-            'POST', '/hello',
-            None, b'{"my":"name"}', args={},
-            headers={
-                'Content-Type': 'application/json'
-            }
-        )
+        r = Request()
+        r.on_header(b'Content-Type', b'application/json')
+        r.on_headers_complete()
+        r._parse_body(b'{"my":"name"}')
         assert r.form == {'my': 'name'}

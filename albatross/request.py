@@ -10,7 +10,8 @@ import io
 
 
 REQUEST_STATE_PROCESSING = 0
-REQUEST_STATE_COMPLETE = 1
+REQUEST_STATE_CONTINUE = 1
+REQUEST_STATE_COMPLETE = 2
 
 
 def trim_keys(d):
@@ -86,6 +87,8 @@ class Request:
 
     def on_header(self, name: bytes, value: bytes):
         self._header_list.append((name.decode(), value.decode()))
+        if name.lower() == b'expect' and value == b'100-continue':
+            self._state = REQUEST_STATE_CONTINUE
 
     def on_headers_complete(self):
         self.headers = ImmutableCaselessMultiDict(self._header_list)
@@ -102,3 +105,10 @@ class Request:
     @property
     def finished(self):
         return self._state == REQUEST_STATE_COMPLETE
+
+    @property
+    def needs_write_continue(self):
+        return self._state == REQUEST_STATE_CONTINUE
+
+    def reset_state(self):
+        self._state = REQUEST_STATE_PROCESSING

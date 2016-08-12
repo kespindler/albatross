@@ -34,9 +34,7 @@ class ImmutableMultiDict(Immutable, dict):
 
 class CaselessDict(dict):
     def __init__(self, it=None, **kwargs):
-        it = it or []
-        if it:
-            it = caseless_pairs(it)
+        it = caseless_pairs(it) if it else []
         if kwargs:
             kwargs = {k.lower(): v for k, v in kwargs.items()}
         super(CaselessDict, self).__init__(it, **kwargs)
@@ -74,13 +72,12 @@ class ImmutableCaselessDict(Immutable, CaselessDict):
 
 class ImmutableCaselessMultiDict(ImmutableMultiDict, CaselessDict):
     def __init__(self, it=None, **kwargs):
-        it = it or []
+        it = caseless_pairs(it) if it else []
         if kwargs:
             kwargs = {k.lower(): [v] for k, v in kwargs.items()}
-        if it:
-            for k, v in caseless_pairs(it):
-                if k in kwargs:
-                    kwargs[k].append(v)
-                else:
-                    kwargs[k] = [v]
+        for k, v in it:
+            if k in kwargs:
+                kwargs[k].append(v)
+            else:
+                kwargs[k] = [v]
         super(ImmutableCaselessMultiDict, self).__init__(**kwargs)

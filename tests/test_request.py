@@ -24,9 +24,11 @@ class RequestTest(unittest.TestCase):
 
     def test_request_cookie(self):
         r = Request()
-        r.on_header(b'COOKIE', b'token=bizbaz')
+        r.on_header(b'COOKIE', b'token=bizbaz; fizzle=bizzle')
         r.on_headers_complete()
         assert r.cookies['token'] == 'bizbaz'
+        assert r.cookies['fizzle'] == 'bizzle'
+        assert ' fizzle' not in r.cookies
 
     def test_request_raw_body(self):
         r = Request()

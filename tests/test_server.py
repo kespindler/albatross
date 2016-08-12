@@ -127,6 +127,17 @@ class ServerIntegrationTest(unittest.TestCase):
         response, body = self.request('GET', '/hello')
         assert float(response.headers['Duration'])
 
+    def test_expect_continue(self):
+        response, body = self.request(
+            'POST', '/hello',
+            data='{"name":"test"}', headers={
+                'Expect': '100-continue',
+                'Content-Type': 'application/json',
+            }
+        )
+        assert response.status == 200
+        assert body == '{"name":"test"}'
+
 
 class FakeHandler:
     def __init__(self, n):

@@ -1,11 +1,9 @@
 import re
 import asyncio
-import urllib.parse as parse
 from datetime import datetime
 from albatross import Request, Response
 from albatross.status_codes import HTTP_404, HTTP_500, HTTP_405
 from albatross.http_error import HTTPError
-from albatross.data_types import ImmutableCaselessDict
 from httptools import HttpRequestParser
 import traceback
 
@@ -15,11 +13,17 @@ def write_cookie(writer, key, value):
         value, duration = value
         if isinstance(duration, datetime):
             format = duration.strftime('%a %d %b %Y %H:%M:%S GMT').encode()
-            writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (key.encode(), str(value).encode(), format))
+            writer.write(b'Set-Cookie: %s=%s;expires=%s\r\n' % (
+                key.encode(), str(value).encode(), format)
+            )
         elif isinstance(duration, int):
-            writer.write(b'Set-Cookie: %s=%s;max-age=%d\r\n' % (key.encode(), str(value).encode(), duration))
+            writer.write(b'Set-Cookie: %s=%s;max-age=%d\r\n' % (
+                key.encode(), str(value).encode(), duration)
+            )
     else:
-        writer.write(b'Set-Cookie: %s=%s\r\n' % (key.encode(), str(value).encode()))
+        writer.write(b'Set-Cookie: %s=%s\r\n' % (
+            key.encode(), str(value).encode())
+        )
 
 
 class Server:
@@ -54,16 +58,6 @@ class Server:
     def add_middleware(self, middleware):
         self._middleware.append(middleware)
 
-    def _parse_header_lines(self, lines):
-        headers = {}
-        for l in lines:
-            try:
-                key, value = l.split(':', 1)
-                headers[key] = value.strip()
-            except ValueError:
-                pass
-        return ImmutableCaselessDict(*headers.items())
-
     async def _parse_request(self, request_reader, response_writer):
         req = Request()
 
@@ -74,6 +68,9 @@ class Server:
             parser.feed_data(data)
             if req.finished:
                 break
+            elif req.needs_write_continue:
+                response_writer.write(b'HTTP/1.1 100 (Continue)\r\n\r\n')
+                req.reset_state()
 
         handler, args = self.get_handler(req.path)
 
@@ -104,7 +101,8 @@ class Server:
             raise HTTPError(HTTP_405)
 
     async def _handle(self, request_reader, response_writer):
-        """Takes reader and writer from asyncio loop server and writes the response to the request.
+        """Takes reader and writer from asyncio loop server and
+        writes the response to the request.
 
         :param request_reader:
         :param response_writer:
@@ -113,7 +111,8 @@ class Server:
         res = Response()
 
         try:
-            req, handler = await self._parse_request(request_reader, response_writer)
+            req, handler = await self._parse_request(
+                request_reader, response_writer)
 
             for middleware in self._middleware:
                 await middleware.process_request(req, res, handler)

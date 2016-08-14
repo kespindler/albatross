@@ -143,6 +143,9 @@ class Server:
 
     def _write_response(self, res, writer):
         writer.write(b'HTTP/1.1 %s\r\n' % res.status_code.encode())
+        if 'Content-Length' not in res.headers:
+            length = sum(len(x) for x in res._chunks)
+            res.headers['Content-Length'] = str(length)
         for key, value in res.headers.items():
             writer.write(key.encode() + b': ' + str(value).encode() + b'\r\n')
         for key, value in res.cookies.items():

@@ -36,7 +36,6 @@ class Server:
     def __init__(self):
         self._handlers = []
         self._middleware = []
-        self.max_read_chunk = 1024*1024
         self.spoof_options = True
 
     def get_handler(self, path):
@@ -59,14 +58,14 @@ class Server:
         self._middleware.append(middleware)
 
     async def _parse_request(self, request_reader, response_writer):
+        limit = 2 ** 16
         req = Request()
-
         parser = HttpRequestParser(req)
 
         while True:
-            data = await request_reader.read(self.max_read_chunk)
+            data = await request_reader.read(limit)
             parser.feed_data(data)
-            if req.finished:
+            if req.finished or not data:
                 break
             elif req.needs_write_continue:
                 response_writer.write(b'HTTP/1.1 100 (Continue)\r\n\r\n')

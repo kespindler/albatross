@@ -22,7 +22,7 @@ app.serve()
 
 ### Notes for Usage
 
-For now (pre 1.0.0), I'm making no claims about API stability (but will try to avoid it!). That said,
+For now (pre 1.0.0), I'm making no claims about API stability (but will try to avoid changes). That said,
 I'm using this framework for some small projects, and it is a joy to work in!
 Reach out if you want to use this, as I'm happy to incorporate your feedback!
 

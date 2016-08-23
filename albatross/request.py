@@ -44,7 +44,7 @@ class Request:
         self.query = None
         self.args = None  # TODO
         self.headers = ImmutableCaselessMultiDict()
-        self.raw_body = None
+        self.raw_body = io.BytesIO()
         self.form = None
         self._header_list = []
         self._state = REQUEST_STATE_PROCESSING
@@ -54,11 +54,10 @@ class Request:
         cookies = trim_keys(parse.parse_qs(value))
         return ImmutableMultiDict(cookies)
 
-    def _parse_form(self, raw_body):
+    def _parse_form(self, body_stream):
         # TODO theres probably a way to not read whole body first)
-        fp = io.BytesIO(raw_body)
         env = {'REQUEST_METHOD': 'POST'}
-        form = cgi.FieldStorage(fp, headers=self.headers, environ=env)
+        form = cgi.FieldStorage(body_stream, headers=self.headers, environ=env)
         d = {}
         for k in form.keys():
             if form[k].filename:
@@ -67,16 +66,17 @@ class Request:
                 d[k] = [form[k].value]
         return ImmutableMultiDict(d)
 
-    def _parse_body(self, raw_body):
+    def _parse_body(self, body_stream):
         content_type = self.headers.get('Content-Type', '')
         if content_type == 'application/json':
-            self.form = json.loads(raw_body.decode())
+            data = body_stream.getvalue().decode()
+            self.form = json.loads(data)
         elif content_type.startswith('multipart/form-data'):
-            self.form = self._parse_form(raw_body)
+            self.form = self._parse_form(body_stream)
         elif content_type == 'application/x-www-form-urlencoded':
-            self.form = ImmutableMultiDict(parse.parse_qs(raw_body.decode()))
-        else:
-            self.raw_body = raw_body
+            data = body_stream.getvalue().decode()
+            self.form = ImmutableMultiDict(parse.parse_qs(data))
+        body_stream.seek(0)
 
     # HTTPRequestParser protocol methods
     def on_url(self, url: bytes):
@@ -97,10 +97,12 @@ class Request:
             self.cookies = self._parse_cookie(cookie_value)
 
     def on_body(self, body: bytes):
-        self._parse_body(body)
+        self.raw_body.write(body)
 
     def on_message_complete(self):
         self._state = REQUEST_STATE_COMPLETE
+        self.raw_body.seek(0)
+        self._parse_body(self.raw_body)
 
     @property
     def finished(self):

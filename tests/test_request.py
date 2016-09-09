@@ -1,6 +1,7 @@
 import unittest
 from albatross import Request
 from albatross.http_error import HTTPError
+from io import BytesIO
 
 
 class RequestTest(unittest.TestCase):
@@ -13,6 +14,7 @@ class RequestTest(unittest.TestCase):
         r.on_header(b'CONTENT-TYPE', b'application/x-www-form-urlencoded')
         r.on_headers_complete()
         r.on_body(b'one=two')
+        r.on_message_complete()
         assert r.method == 'POST'
         assert r.path == '/hello/test'
         assert r.query_string == 'foo=baz'
@@ -32,12 +34,12 @@ class RequestTest(unittest.TestCase):
 
     def test_request_raw_body(self):
         r = Request()
-        r._parse_body(b'stream')
-        assert r.raw_body == b'stream'
+        r.on_body(b'stream')
+        assert r.raw_body.getvalue() == b'stream'
 
     def test_request_json(self):
         r = Request()
         r.on_header(b'Content-Type', b'application/json')
         r.on_headers_complete()
-        r._parse_body(b'{"my":"name"}')
+        r._parse_body(BytesIO(b'{"my":"name"}'))
         assert r.form == {'my': 'name'}

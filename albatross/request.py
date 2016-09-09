@@ -37,18 +37,28 @@ class Request:
         form (dict): Dictionary of body parameters
     """
 
-    def __init__(self):
-        self.method = None
-        self.path = None
-        self.query_string = ''
-        self.query = None
-        self.args = None  # TODO
-        self.headers = ImmutableCaselessMultiDict()
-        self.raw_body = io.BytesIO()
-        self.form = None
+    def __init__(self, method=None, path=None, query_string='',
+                 args=None, headers=None, form=None, cookies=None):
         self._header_list = []
         self._state = REQUEST_STATE_PROCESSING
+        self.method = method
+        self.path = path
+        self.query_string = query_string
+        self.query = None
+        self.args = args
+        self.headers = ImmutableCaselessMultiDict()
         self.cookies = ImmutableMultiDict()
+        self.raw_body = io.BytesIO()
+        self.form = form
+
+        if query_string:
+            self.query = ImmutableMultiDict(parse.parse_qs(self.query_string))
+
+        if headers:
+            self.headers = ImmutableCaselessMultiDict(**headers)
+
+        if cookies:
+            self.cookies = ImmutableMultiDict(**cookies)
 
     def _parse_cookie(self, value):
         cookies = trim_keys(parse.parse_qs(value))

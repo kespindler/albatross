@@ -71,6 +71,10 @@ class Server:
                 response_writer.write(b'HTTP/1.1 100 (Continue)\r\n\r\n')
                 req.reset_state()
 
+        if req.path is None:
+            # connected without a formed HTTP request
+            return
+
         handler, args = self.get_handler(req.path)
 
         req.method = parser.get_method().decode().upper()
